@@ -92,6 +92,8 @@ vim.g.maplocalleader = ' '
 
 vim.keymap.set('n', '<S-Right>', ':vertical resize +5<CR>')
 vim.keymap.set('n', '<S-Left>', ':vertical resize -5<CR>', { noremap = true, silent = true })
+vim.keymap.set('n', '<S-Up>', ':horizontal resize +5<CR>')
+vim.keymap.set('n', '<S-Down>', ':horizontal resize -5<CR>')
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = false
 
