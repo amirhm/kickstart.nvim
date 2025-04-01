@@ -13,13 +13,28 @@ return {
   keys = {
     { '\\', ':Neotree reveal<CR>', desc = 'NeoTree reveal', silent = true },
   },
-  opts = {
-    filesystem = {
-      window = {
-        mappings = {
-          ['\\'] = 'close_window',
+  config = function()
+    require('neo-tree').setup {
+      enable_git_status = true, -- Ensure Git status is enabled
+      filesystem = {
+
+        follow_current_file = true,
+        hijack_netrw_behavior = 'open_current',
+        use_libuv_file_watcher = true, -- Automatically update when files change
+      },
+      git_status = {
+        symbols = {
+          added = '✚',
+          modified = '',
+          deleted = '✖',
+          renamed = '➜',
+          untracked = '★',
+          ignored = '◌',
+          unstaged = '✗',
+          staged = '✓',
+          conflict = '',
         },
       },
-    },
-  },
+    }
+  end,
 }

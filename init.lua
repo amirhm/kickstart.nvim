@@ -94,8 +94,65 @@ vim.keymap.set('n', '<S-Right>', ':vertical resize +5<CR>')
 vim.keymap.set('n', '<S-Left>', ':vertical resize -5<CR>', { noremap = true, silent = true })
 vim.keymap.set('n', '<S-Up>', ':horizontal resize +5<CR>')
 vim.keymap.set('n', '<S-Down>', ':horizontal resize -5<CR>')
+
+vim.keymap.set('n', '<A-j>' ,':m .+1<CR>==')
+vim.keymap.set('n', '<A-k>', ':m .-2<CR>==')
+vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv")
+vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv")
+vim.keymap.set('i', '<A-j>', '<Esc>:m .+1<CR>==gi')
+vim.keymap.set('i', '<A-k>', '<Esc>:m .-1<CR>==gi')
+
+vim.keymap.set('n', '<leader>lj',' :lnext<CR>')
+vim.keymap.set('n', '<leader>lk',' :lprev<CR>')
+vim.keymap.set('n', '<leader>lo',' :lopen<CR>')
+vim.keymap.set('n', '<leader>lc',' :lclose<CR>')
+vim.keymap.set('n', '<leader>lf',' :lfirst<CR>')
+vim.keymap.set('n', '<leader>ll',' :llast<CR>')
+
+local use_quickfix = true  -- Default to quickfix
+
+vim.keymap.set('n', '<leader>tq', function()
+    use_quickfix = not use_quickfix
+    print("Switched to " .. (use_quickfix and "Quickfix" or "Location") .. " List")
+end, { desc = "Toggle Quickfix/Location List" })
+
+local function safe_next()
+    if use_quickfix then
+        local qflist = vim.fn.getqflist()
+        local qfidx = vim.fn.getqflist({ idx = 0 }).idx
+        if #qflist > 0 and qfidx < #qflist then
+            vim.cmd("cnext")
+        end
+    else
+        local loclist = vim.fn.getloclist(0)
+        local locidx = vim.fn.getloclist(0, { idx = 0 }).idx
+        if #loclist > 0 and locidx < #loclist then
+            vim.cmd("lnext")
+        end
+    end
+end
+
+local function safe_prev()
+    if use_quickfix then
+        local qflist = vim.fn.getqflist()
+        local qfidx = vim.fn.getqflist({ idx = 0 }).idx
+        if #qflist > 0 and qfidx > 1 then
+            vim.cmd("cprev")
+        end
+    else
+        local loclist = vim.fn.getloclist(0)
+        local locidx = vim.fn.getloclist(0, { idx = 0 }).idx
+        if #loclist > 0 and locidx > 1 then
+            vim.cmd("lprev")
+        end
+    end
+end
+
+vim.keymap.set('n', '<A-Down>', safe_next, { desc = "Next item in Quickfix/Location List" })
+vim.keymap.set('n', '<A-Up>', safe_prev, { desc = "Previous item in Quickfix/Location List" })
+
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
@@ -109,6 +166,8 @@ vim.opt.number = true
 -- vim.opt.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
+
+-- vim.opt.relativenumber = true
 vim.opt.mouse = 'a'
 
 -- Don't show the mode, since it's already in the status line
@@ -220,6 +279,7 @@ vim.keymap.set('n', '<space>st', function()
   vim.cmd.term()
   vim.cmd.wincmd 'J'
   vim.api.nvim_win_set_height(0, 15)
+  vim.cmd 'startinsert' -- Switch to insert mode
 end)
 
 --[[ Install `lazy.nvim` plugin manager ]]
@@ -271,6 +331,10 @@ require('lazy').setup({
   -- options to `gitsigns.nvim`.
   --
   -- See `:help gitsigns` to understand what the configuration keys do
+  {
+    'tpope/vim-fugitive',
+    lazy = false,
+  },
   { 'sindrets/diffview.nvim' },
   {
     'isakbm/gitgraph.nvim',
@@ -313,6 +377,15 @@ require('lazy').setup({
         changedelete = { text = '~' },
       },
     },
+  },
+  {
+    'mfussenegger/nvim-dap',
+    'rcarriga/nvim-dap-ui',
+    'jay-babu/mason-nvim-dap.nvim',
+    'williamboman/mason.nvim',
+    'nvim-telescope/telescope-dap.nvim',
+    'mfussenegger/nvim-dap-python',
+    'nvim-neotest/nvim-nio',
   },
 
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
@@ -711,7 +784,7 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
+        clangd = {},
         -- gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
@@ -776,48 +849,48 @@ require('lazy').setup({
     end,
   },
 
-  { -- Autoformat
-    'stevearc/conform.nvim',
-    event = { 'BufWritePre' },
-    cmd = { 'ConformInfo' },
-    keys = {
-      {
-        '<leader>f',
-        function()
-          require('conform').format { async = true, lsp_format = 'fallback' }
-        end,
-        mode = '',
-        desc = '[F]ormat buffer',
-      },
-    },
-    opts = {
-      notify_on_error = false,
-      format_on_save = function(bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style. You can add additional
-        -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
-        local lsp_format_opt
-        if disable_filetypes[vim.bo[bufnr].filetype] then
-          lsp_format_opt = 'never'
-        else
-          lsp_format_opt = 'fallback'
-        end
-        return {
-          timeout_ms = 500,
-          lsp_format = lsp_format_opt,
-        }
-      end,
-      formatters_by_ft = {
-        lua = { 'stylua' },
-        -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
-        --
-        -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
-      },
-    },
-  },
+  -- { -- Autoformat
+  --   'stevearc/conform.nvim',
+  --   event = { 'BufWritePre' },
+  --   cmd = { 'ConformInfo' },
+  --   keys = {
+  --     {
+  --       '<leader>f',
+  --       function()
+  --         require('conform').format { async = true, lsp_format = 'fallback' }
+  --       end,
+  --       mode = '',
+  --       desc = '[F]ormat buffer',
+  --     },
+  --   },
+  --   opts = {
+  --     notify_on_error = false,
+  --     format_on_save = function(bufnr)
+  --       -- Disable "format_on_save lsp_fallback" for languages that don't
+  --       -- have a well standardized coding style. You can add additional
+  --       -- languages here or re-enable it for the disabled ones.
+  --       local disable_filetypes = { c = true, cpp = true }
+  --       local lsp_format_opt
+  --       if disable_filetypes[vim.bo[bufnr].filetype] then
+  --         lsp_format_opt = 'never'
+  --       else
+  --         lsp_format_opt = 'fallback'
+  --       end
+  --       return {
+  --         timeout_ms = 500,
+  --         lsp_format = lsp_format_opt,
+  --       }
+  --     end,
+  --     formatters_by_ft = {
+  --       lua = { 'stylua' },
+  --       -- Conform can also run multiple formatters sequentially
+  --       -- python = { "isort", "black" },
+  --       --
+  --       -- You can use 'stop_after_first' to run the first available formatter from the list
+  --       -- javascript = { "prettierd", "prettier", stop_after_first = true },
+  --     },
+  --   },
+  -- },
 
   { -- Autocompletion
     'hrsh7th/nvim-cmp',
@@ -1071,6 +1144,95 @@ require('lazy').setup({
     },
   },
 })
-
+require('dap-python').setup()
+vim.keymap.set('n', '<F5>', function()
+  require('dap').continue()
+end)
+vim.keymap.set('n', '<F10>', function()
+  require('dap').step_over()
+end)
+vim.keymap.set('n', '<F11>', function()
+  require('dap').step_into()
+end)
+vim.keymap.set('n', '<F12>', function()
+  require('dap').step_out()
+end)
+vim.keymap.set('n', '<leader>b', function()
+  require('dap').toggle_breakpoint()
+end)
+vim.keymap.set('n', '<leader>B', function()
+  require('dap').set_breakpoint(vim.fn.input 'Breakpoint condition: ')
+end)
+vim.keymap.set('n', '<leader>dr', function()
+  require('dap').repl.open()
+end)
+vim.keymap.set('n', '<leader>du', function()
+  require('dapui').toggle()
+end)
+-- If using the above, then `python3 -m debugpy --version`
+-- must work in the shell
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
+--
+--
+
+local dap = require 'dap'
+-- Configure codelldb (LLDB)
+dap.adapters.lldb = {
+  type = 'executable',
+  command = '/Users/amirhm/.local/share/nvim/mason/packages/codelldb/extension/adapter/codelldb', -- Set the correct path to codelldb
+  name = 'lldb',
+}
+-- Configure cppdbg (GDB)
+dap.adapters.cppdbg = {
+  id = 'cppdbg',
+  type = 'executable',
+  command = '/Users/amirhm/.local/share/nvim/mason/packages/cpptools/extension/debugAdapters/bin/OpenDebugAD7', -- Change this path if needed
+  options = {
+    detached = false,
+  },
+}
+
+-- Debug configurations
+dap.configurations.c = {
+  {
+    name = 'Launch',
+    type = 'lldb', -- Change to "cppdbg" for GDB
+    request = 'launch',
+    program = function()
+      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+    end,
+    cwd = '${workspaceFolder}',
+    stopOnEntry = false,
+    args = {},
+  },
+}
+
+dap.configurations.cpp = dap.configurations.c -- Use the same for C++
+
+local dapui = require 'dapui'
+
+-- Setup DAP UI before using it
+dapui.setup()
+
+dap.listeners.after.event_initialized['dapui_config'] = function()
+  dapui.open()
+end
+dap.listeners.before.event_terminated['dapui_config'] = function()
+  dapui.close()
+end
+dap.listeners.before.event_exited['dapui_config'] = function()
+  dapui.close()
+end
+require'lspconfig'.pylsp.setup{
+  settings = {
+    pylsp = {
+      plugins = {
+       pycodestyle = { enabled = false },  -- Disable pycodestyle
+        ruff = {
+          enabled = true,
+        }
+      }
+    }
+  }
+}
